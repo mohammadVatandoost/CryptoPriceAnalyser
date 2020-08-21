@@ -38,7 +38,7 @@ type Coin struct {
 type Price struct {
 	gorm.Model
 	CoinID    string
-	Price     uint32
+	Price     float32
 	Volume    uint64
 	MarketCap uint64
 }
@@ -51,8 +51,34 @@ type coinJSONObject struct {
 func main() {
 	// createCoinTable()
 	// enterCoinsInfo()
-	enterCoinPrice()
-	analysePrice()
+	// enterCoinPrice()
+	// analysePrice()
+
+	// ticker := time.NewTicker(60 * time.Second)
+	// done := make(chan bool)
+	// go func() {
+	// 	for {
+	// 		select {
+	// 		case <-done:
+	// 			ticker.Stop()
+	// 			return
+	// 		case <-ticker.C:
+	// enterCoinPrice()
+	// analysePrice()
+	// fmt.Println("=================================")
+	// 		}
+	// 	}
+	// }()
+
+	// done <- true
+
+	for range time.Tick(time.Minute * 15) {
+		enterCoinPrice()
+		analysePrice()
+		fmt.Println("=================================")
+	}
+
+	fmt.Println("Ticker stopped")
 }
 
 func createCoinTable() {
@@ -120,10 +146,11 @@ func enterCoinPrice() {
 		fmt.Println("failed to connect database: ", err)
 		os.Exit(1)
 	}
+	// db.AutoMigrate(&Price{})
 	defer db.Close()
 	var coins []Coin
-	result := db.Find(&coins)
-	fmt.Println("db.Find(&coins):", result.RowsAffected, ", ", result.Error)
+	db.Find(&coins)
+	// fmt.Println("db.Find(&coins):", result.RowsAffected, ", ", result.Error)
 	// inputChannel := make(chan string)
 	outputChannel := make(chan string)
 	var res string
@@ -147,8 +174,8 @@ func enterCoinPrice() {
 					oneDayData, _, _, _ := jsonparser.Get(value, "1d")
 					temp, _ = jsonparser.GetString([]byte(oneDayData), "volume")
 					volume, _ := strconv.ParseFloat(temp, 64)
-					fmt.Println(" price:", price, ", id:", id, ", market_cap:", marketCap, ", volume:", volume)
-					db.Create(&Price{CoinID: id, Price: uint32(price),
+					// fmt.Println(" price:", price, ", id:", id, ", market_cap:", marketCap, ", volume:", volume)
+					db.Create(&Price{CoinID: id, Price: float32(price),
 						MarketCap: uint64(marketCap), Volume: uint64(volume)})
 				})
 			}
@@ -158,7 +185,7 @@ func enterCoinPrice() {
 
 	for t := 0; t < j; t++ {
 		res = <-outputChannel
-		fmt.Println("res:", res)
+		// fmt.Println("res:", res)
 		jsonparser.ArrayEach([]byte(res), func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
 			id, _ := jsonparser.GetString(value, "id")
 			temp, _ := jsonparser.GetString(value, "price")
@@ -169,8 +196,8 @@ func enterCoinPrice() {
 			oneDayData, _, _, _ := jsonparser.Get(value, "1d")
 			temp, _ = jsonparser.GetString([]byte(oneDayData), "volume")
 			volume, _ := strconv.ParseFloat(temp, 64)
-			fmt.Println(" price:", price, ", id:", id, ", market_cap:", marketCap, ", volume:", volume)
-			db.Create(&Price{CoinID: id, Price: uint32(price),
+			// fmt.Println(" price:", price, ", id:", id, ", market_cap:", marketCap, ", volume:", volume)
+			db.Create(&Price{CoinID: id, Price: float32(price),
 				MarketCap: uint64(marketCap), Volume: uint64(volume)})
 		})
 	}
@@ -201,8 +228,9 @@ func analysePrice() {
 	}
 	defer db.Close()
 	var coins []Coin
-	result := db.Find(&coins)
-	fmt.Println("db.Find(&coins):", result.RowsAffected, ", ", result.Error)
+	db.Find(&coins)
+	// result := db.Find(&coins)
+	// fmt.Println("db.Find(&coins):", result.RowsAffected, ", ", result.Error)
 	// inputChannel := make(chan string)
 	// outputChannel := make(chan string)
 	// var res string
@@ -211,8 +239,26 @@ func analysePrice() {
 		if coins[i].Watching == 1 {
 			var prices []Price
 			db.Where("coin_id = ? AND updated_at > ?", coins[i].CoinID, time.Now().AddDate(0, 0, -7)).Find(&prices)
+			var sum uint64
+			sum = 0
 			for _, price := range prices {
-				fmt.Println(price.CoinID, " , ", price.Price, ", ", price.CreatedAt)
+				sum = sum + price.Volume
+				// fmt.Println("CoinID:", price.CoinID, " , price:", price.Price,
+				// 	", CreatedAt:", price.CreatedAt, ", MarketCap:", price.MarketCap, ", Volume:", price.Volume)
+			}
+			if len(prices) > 2 {
+				avg := sum / uint64(len(prices))
+				lastPrice := prices[len(prices)-1]
+				secLastPrice := prices[len(prices)-2]
+				// fmt.Println("avg:", avg)
+				// fmt.Println("lastPrice CoinID:", lastPrice.CoinID, " , price:", lastPrice.Price,
+				// 	", CreatedAt:", lastPrice.CreatedAt, ", MarketCap:", lastPrice.MarketCap, ", Volume:", lastPrice.Volume)
+				// fmt.Println("secLastPrice CoinID:", secLastPrice.CoinID, " , price:", secLastPrice.Price,
+				// 	", CreatedAt:", secLastPrice.CreatedAt, ", MarketCap:", secLastPrice.MarketCap, ", Volume:", secLastPrice.Volume)
+				if lastPrice.Volume > uint64(float64(avg)*1.10) && lastPrice.Price > secLastPrice.Price {
+					fmt.Println("Bulish Signal CoinID:", lastPrice.CoinID, " , price:", lastPrice.Price,
+						", CreatedAt:", lastPrice.CreatedAt, ", MarketCap:", lastPrice.MarketCap, ", Volume:", lastPrice.Volume)
+				}
 			}
 		}
 	}
