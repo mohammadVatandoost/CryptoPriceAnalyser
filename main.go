@@ -221,6 +221,7 @@ func getCoinInfo(coindID string, oChannel chan string) {
 }
 
 func analysePrice() {
+	fmt.Println("********** analysePrice *****************")
 	db, err := gorm.Open(dbDriver, dbName)
 	if err != nil {
 		fmt.Println("failed to connect database: ", err)
@@ -239,24 +240,34 @@ func analysePrice() {
 		if coins[i].Watching == 1 {
 			var prices []Price
 			db.Where("coin_id = ? AND updated_at > ?", coins[i].CoinID, time.Now().AddDate(0, 0, -7)).Find(&prices)
-			var sum uint64
-			sum = 0
+			var sumVolume uint64
+			var sumPrice float32
+			sumVolume = 0
+			sumPrice = 0.0
 			for _, price := range prices {
-				sum = sum + price.Volume
+				sumVolume = sumVolume + price.Volume
 				// fmt.Println("CoinID:", price.CoinID, " , price:", price.Price,
 				// 	", CreatedAt:", price.CreatedAt, ", MarketCap:", price.MarketCap, ", Volume:", price.Volume)
 			}
-			if len(prices) > 2 {
-				avg := sum / uint64(len(prices))
+
+			if len(prices) > 15 {
+				for j := len(prices) - 1; j > len(prices)-16; j-- {
+					// fmt.Println(prices[j].CoinID, " i:", j, " , len(prices):", len(prices))
+					sumPrice = sumPrice + prices[j].Price
+				}
+				avgVolume := sumVolume / uint64(len(prices))
+				avgPrice := sumPrice / 15.0
 				lastPrice := prices[len(prices)-1]
-				secLastPrice := prices[len(prices)-2]
+				// secLastPrice := prices[len(prices)-2]
 				// fmt.Println("avg:", avg)
 				// fmt.Println("lastPrice CoinID:", lastPrice.CoinID, " , price:", lastPrice.Price,
 				// 	", CreatedAt:", lastPrice.CreatedAt, ", MarketCap:", lastPrice.MarketCap, ", Volume:", lastPrice.Volume)
 				// fmt.Println("secLastPrice CoinID:", secLastPrice.CoinID, " , price:", secLastPrice.Price,
 				// 	", CreatedAt:", secLastPrice.CreatedAt, ", MarketCap:", secLastPrice.MarketCap, ", Volume:", secLastPrice.Volume)
-				if lastPrice.Volume > uint64(float64(avg)*1.10) && lastPrice.Price > secLastPrice.Price {
-					fmt.Println("Bulish Signal CoinID:", lastPrice.CoinID, " , price:", lastPrice.Price,
+				if lastPrice.Volume > uint64(float64(avgVolume)*1.10) && lastPrice.Price > avgPrice {
+					var score float32
+					score = float32(float32(lastPrice.Volume)/float32(avgVolume)) * float32(float32(lastPrice.Volume)/float32(avgVolume))
+					fmt.Println("Bulish Signal score:", score, ", CoinID:", lastPrice.CoinID, " , price:", lastPrice.Price,
 						", CreatedAt:", lastPrice.CreatedAt, ", MarketCap:", lastPrice.MarketCap, ", Volume:", lastPrice.Volume)
 				}
 			}
