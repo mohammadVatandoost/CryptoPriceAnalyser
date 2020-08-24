@@ -34,10 +34,14 @@ type Coin struct {
 
 type Price struct {
 	gorm.Model
-	CoinID    string
-	Price     float32
-	Volume    uint64
-	MarketCap uint64
+	CoinID         string
+	Price          float32
+	PredictedPrice float32
+	Volume         uint64
+	MarketCap      uint64
+	TimeToSecond   int64
+	SignalAlg      int
+	SignalAI       int
 }
 
 func getCoinPrice(coinID string) []Price {
@@ -69,4 +73,17 @@ func getWatchingCoins() []Coin {
 	}
 
 	return watchingCoins
+}
+
+func createCoinTable() {
+	db, err := gorm.Open(dbDriver, dbName)
+	if err != nil {
+		fmt.Println("failed to connect database: ", err)
+		os.Exit(1)
+	}
+	defer db.Close()
+
+	// Migrate the schema
+	// db.AutoMigrate(&Coin{})
+	db.AutoMigrate(&Price{})
 }

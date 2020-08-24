@@ -7,9 +7,9 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func main() {
-	initalizeRoutes()
-}
+// func main() {
+
+// }
 
 func initalizeRoutes() {
 	router := gin.Default()
@@ -20,6 +20,7 @@ func initalizeRoutes() {
 	router.GET("/", showIndexPage)
 	router.GET("/coin-price/:coinID", routeGetCoinPrice)
 	router.GET("/watching-coin", routeGetWatchingCoins)
+	router.GET("/gold-price", routeGetGoldPrice)
 
 	router.Run(":8085") // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 }
@@ -42,5 +43,12 @@ func routeGetWatchingCoins(c *gin.Context) {
 	var coins []Coin
 	coins = getWatchingCoins()
 	res, _ := json.Marshal(coins)
+	c.String(http.StatusOK, string(res))
+}
+
+func routeGetGoldPrice(c *gin.Context) {
+	var goldPrices []MetalPrice
+	goldPrices = getGoldPrices()
+	res, _ := json.Marshal(goldPrices)
 	c.String(http.StatusOK, string(res))
 }

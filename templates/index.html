@@ -25,7 +25,26 @@
         <div style="width: 100%">
             <canvas id="canvas"></canvas>
         </div>
+        <div style="width: 100%">
+            <canvas id="gold_canvas"></canvas>
+        </div>
+        <!-- get gold price  -->
         <script>
+            var goldX = []
+            var goldPrice = []
+            var goldChartData = {
+                labels: goldX,
+                datasets: [{
+                    type: 'line',
+                    label: 'Price (dallar)',
+                    borderColor: window.chartColors.blue,
+                    borderWidth: 2,
+                    fill: false,
+                    data: goldPrice
+                }]
+            };
+
+
             var xLabels = ['January', 'February', 'March', 'April', 'May', 'June', 'July']
             var yPrice = [
                 randomScalingFactor(),
@@ -83,7 +102,7 @@
                         responsive: true,
                         title: {
                             display: true,
-                            text: 'Chart.js Combo Bar Line Chart'
+                            text: 'Crypto Chart'
                         },
                         tooltips: {
                             mode: 'index',
@@ -106,22 +125,54 @@
                         }
                     }
                 });
+                // ***************** Gold Price
+                var gold_chart = document.getElementById('gold_canvas').getContext('2d');
+                window.myGold_chart = new Chart(gold_chart, {
+                    type: 'line',
+                    data: goldChartData,
+                    options: {
+                        responsive: true,
+                        title: {
+                            display: true,
+                            text: 'Gold Chart'
+                        },
+                        tooltips: {
+                            mode: 'index',
+                            intersect: true
+                        }
+                    }
+                });
+                $.get("http://localhost:8085/gold-price", function (data, status) {
+                    var goldPrices = JSON.parse(data)
+                    goldX = []
+                    goldPrice = []
+                    for (var i = 0; i < goldPrices.length; i++) {
+                        goldX.push(goldPrices[i].CreatedAt.slice(5, 16).replace("T", " "))
+                        goldPrice.push(goldPrices[i].Price)
+                    }
+                    console.log("Gold price")
+                    console.log(goldX)
+                    console.log(goldPrice)
+                    window.myGold_chart.data.labels = goldX
+                    chartData.datasets[0].data = goldPrice
+                    window.myGold_chart.update();
+                });
             };
 
-            document.getElementById('randomizeData').addEventListener('click', function () {
-                chartData.datasets.forEach(function (dataset) {
-                    dataset.data = dataset.data.map(function () {
-                        return randomScalingFactor();
-                    });
-                });
-                window.myMixedChart.update();
-            });
+            // document.getElementById('randomizeData').addEventListener('click', function () {
+            //     chartData.datasets.forEach(function (dataset) {
+            //         dataset.data = dataset.data.map(function () {
+            //             return randomScalingFactor();
+            //         });
+            //     });
+            //     window.myMixedChart.update();
+            // });
 
             function updateChart(coinID) {
                 $.get("http://localhost:8085/coin-price/" + coinID, function (data, status) {
                     var coinPrices = JSON.parse(data)
-                    console.log("updateChart")
-                    console.log(coinPrices)
+                    // console.log("updateChart")
+                    // console.log(coinPrices)
                     xLabels = []
                     yPrice = []
                     yVolume = []
@@ -130,7 +181,7 @@
                         yPrice.push(coinPrices[i].Price)
                         yVolume.push(parseInt(coinPrices[i].Volume) / 1000000)
                     }
-                    console.log(xLabels)
+                    // console.log(xLabels)
                     // console.log(yPrice)
                     // console.log(yVolume)
                     window.myMixedChart.data.labels = xLabels

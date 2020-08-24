@@ -14,35 +14,36 @@ import (
 	_ "github.com/jinzhu/gorm/dialects/sqlite"
 )
 
-const dbName = "Crypto.db"
-const dbDriver = "sqlite3"
+// const dbName = "Crypto.db"
+// const dbDriver = "sqlite3"
 const APIkey = "3a6d281a390561754bd63457b8e5d904"
 const numberOfRoutines = 4
 const serverPort = "4567"
+const NoConnection = "NoConnection"
 
-// gorm.Model definition
-type Model struct {
-	ID        uint `gorm:"primary_key"`
-	CreatedAt time.Time
-	UpdatedAt time.Time
-	DeletedAt *time.Time
-}
+// // gorm.Model definition
+// type Model struct {
+// 	ID        uint `gorm:"primary_key"`
+// 	CreatedAt time.Time
+// 	UpdatedAt time.Time
+// 	DeletedAt *time.Time
+// }
 
-//   Inject fields `ID`, `CreatedAt`, `UpdatedAt`, `DeletedAt` into model `User`
-type Coin struct {
-	gorm.Model
-	Name     string
-	CoinID   string
-	Watching uint
-}
+// //   Inject fields `ID`, `CreatedAt`, `UpdatedAt`, `DeletedAt` into model `User`
+// type Coin struct {
+// 	gorm.Model
+// 	Name     string
+// 	CoinID   string
+// 	Watching uint
+// }
 
-type Price struct {
-	gorm.Model
-	CoinID    string
-	Price     float32
-	Volume    uint64
-	MarketCap uint64
-}
+// type Price struct {
+// 	gorm.Model
+// 	CoinID    string
+// 	Price     float32
+// 	Volume    uint64
+// 	MarketCap uint64
+// }
 
 type coinJSONObject struct {
 	id   string
@@ -75,26 +76,20 @@ func main() {
 	// fmt.Println("Server Port:", serverPort)
 	// http.HandleFunc("/", requestHandler)
 	// http.ListenAndServe(":"+serverPort, nil)
-	for range time.Tick(time.Minute * 15) {
+
+	go initalizeRoutes()
+
+	for range time.Tick(time.Minute * 5) {
 		enterCoinPrice()
 		analysePrice()
 		fmt.Println("=================================")
 	}
 
-	fmt.Println("Ticker stopped")
-}
-
-func createCoinTable() {
-	db, err := gorm.Open(dbDriver, dbName)
-	if err != nil {
-		fmt.Println("failed to connect database: ", err)
-		os.Exit(1)
+	for range time.Tick(time.Hour * 8) {
+		updateMetalPrice()
 	}
-	defer db.Close()
 
-	// Migrate the schema
-	db.AutoMigrate(&Coin{})
-	db.AutoMigrate(&Price{})
+	fmt.Println("Ticker stopped")
 }
 
 func enterCoinsInfo() {
@@ -167,6 +162,10 @@ func enterCoinPrice() {
 		if j == numberOfRoutines {
 			for t := 0; t < j; t++ {
 				res = <-outputChannel
+				if res == NoConnection {
+					fmt.Println("No internet connectrion")
+					return
+				}
 				jsonparser.ArrayEach([]byte(res), func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
 					id, _ := jsonparser.GetString(value, "id")
 					temp, _ := jsonparser.GetString(value, "price")
@@ -178,8 +177,8 @@ func enterCoinPrice() {
 					temp, _ = jsonparser.GetString([]byte(oneDayData), "volume")
 					volume, _ := strconv.ParseFloat(temp, 64)
 					// fmt.Println(" price:", price, ", id:", id, ", market_cap:", marketCap, ", volume:", volume)
-					db.Create(&Price{CoinID: id, Price: float32(price),
-						MarketCap: uint64(marketCap), Volume: uint64(volume)})
+					db.Create(&Price{CoinID: id, Price: float32(price), TimeToSecond: time.Now().Unix(),
+						MarketCap: uint64(marketCap), Volume: uint64(volume), SignalAI: 0, SignalAlg: 0})
 				})
 			}
 			j = 0
@@ -188,6 +187,10 @@ func enterCoinPrice() {
 
 	for t := 0; t < j; t++ {
 		res = <-outputChannel
+		if res == NoConnection {
+			fmt.Println("No internet connectrion")
+			return
+		}
 		// fmt.Println("res:", res)
 		jsonparser.ArrayEach([]byte(res), func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
 			id, _ := jsonparser.GetString(value, "id")
@@ -200,18 +203,20 @@ func enterCoinPrice() {
 			temp, _ = jsonparser.GetString([]byte(oneDayData), "volume")
 			volume, _ := strconv.ParseFloat(temp, 64)
 			// fmt.Println(" price:", price, ", id:", id, ", market_cap:", marketCap, ", volume:", volume)
-			db.Create(&Price{CoinID: id, Price: float32(price),
-				MarketCap: uint64(marketCap), Volume: uint64(volume)})
+			db.Create(&Price{CoinID: id, Price: float32(price), TimeToSecond: time.Now().Unix(),
+				MarketCap: uint64(marketCap), Volume: uint64(volume), SignalAI: 0, SignalAlg: 0})
 		})
 	}
 	//
 }
 
 func getCoinInfo(coindID string, oChannel chan string) {
-	resp, err := http.Get("https://api.nomics.com/v1/currencies/ticker?key=" + APIkey + "&ids=" + coindID + "&interval=1d&convert=USD")
+	resp, err := http.Get("https://api.nomics.com/v1/currencies/ticker?key=" + APIkey + "&ids=" + coindID + "&interval=1h&convert=USD")
 	if err != nil {
 		fmt.Println("failed to get coin info")
-		os.Exit(1)
+		// os.Exit(1)
+		oChannel <- NoConnection
+		return
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)
@@ -262,7 +267,7 @@ func analysePrice() {
 				avgPrice := sumPrice / 15.0
 				lastPrice := prices[len(prices)-1]
 				// secLastPrice := prices[len(prices)-2]
-				// fmt.Println("avg:", avg)
+				fmt.Println("CoinID:", lastPrice.CoinID, ", avgPrice:", avgPrice, ", avgVolume:", avgVolume, " , price:", lastPrice.Price, ", Volume:", lastPrice.Volume)
 				// fmt.Println("lastPrice CoinID:", lastPrice.CoinID, " , price:", lastPrice.Price,
 				// 	", CreatedAt:", lastPrice.CreatedAt, ", MarketCap:", lastPrice.MarketCap, ", Volume:", lastPrice.Volume)
 				// fmt.Println("secLastPrice CoinID:", secLastPrice.CoinID, " , price:", secLastPrice.Price,
@@ -272,6 +277,13 @@ func analysePrice() {
 					score = float32(float32(lastPrice.Volume)/float32(avgVolume)) * float32(float32(lastPrice.Volume)/float32(avgVolume))
 					fmt.Println("Bulish Signal score:", score, ", CoinID:", lastPrice.CoinID, " , price:", lastPrice.Price,
 						", CreatedAt:", lastPrice.CreatedAt, ", MarketCap:", lastPrice.MarketCap, ", Volume:", lastPrice.Volume)
+					db.Model(&lastPrice).Update("SignalAlg", 1)
+				} else if lastPrice.Volume > uint64(float64(avgVolume)*1.10) && lastPrice.Price < (avgPrice*1.01) {
+					var score float32
+					score = float32(float32(lastPrice.Volume)/float32(avgVolume)) * float32(float32(lastPrice.Volume)/float32(avgVolume))
+					fmt.Println("Bearish Signal score:", score, ", CoinID:", lastPrice.CoinID, " , price:", lastPrice.Price,
+						", CreatedAt:", lastPrice.CreatedAt, ", MarketCap:", lastPrice.MarketCap, ", Volume:", lastPrice.Volume)
+					db.Model(&lastPrice).Update("SignalAlg", -1)
 				}
 			}
 		}
