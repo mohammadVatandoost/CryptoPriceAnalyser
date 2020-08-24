@@ -16,71 +16,63 @@
 
 <body>
 
-    <div class="container">
+    <div class="container" style="max-width: 2000px; width: 95%;">
         <h1>Crypto Price prediction</h1>
         <div class="form-group col-md-6">
-            <select class="form-control" id="watching_coins">
+            <select class="form-control" id="watching_coins" onchange="coinChange()">
             </select>
         </div>
-        <div style="width: 75%">
+        <div style="width: 100%">
             <canvas id="canvas"></canvas>
         </div>
-        <button id="randomizeData">Randomize Data</button>
         <script>
+            var xLabels = ['January', 'February', 'March', 'April', 'May', 'June', 'July']
+            var yPrice = [
+                randomScalingFactor(),
+                randomScalingFactor(),
+                randomScalingFactor(),
+                randomScalingFactor(),
+                randomScalingFactor(),
+                randomScalingFactor(),
+                randomScalingFactor()
+            ]
+            var yVolume = [
+                randomScalingFactor(),
+                randomScalingFactor(),
+                randomScalingFactor(),
+                randomScalingFactor(),
+                randomScalingFactor(),
+                randomScalingFactor(),
+                randomScalingFactor()
+            ]
             var chartData = {
-                labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
+                labels: xLabels,
                 datasets: [{
                     type: 'line',
-                    label: 'Dataset 1',
+                    label: 'Price (dallar)',
                     borderColor: window.chartColors.blue,
                     borderWidth: 2,
                     fill: false,
-                    data: [
-                        randomScalingFactor(),
-                        randomScalingFactor(),
-                        randomScalingFactor(),
-                        randomScalingFactor(),
-                        randomScalingFactor(),
-                        randomScalingFactor(),
-                        randomScalingFactor()
-                    ]
+                    yAxisID: 'A',
+                    data: yPrice
                 }, {
                     type: 'bar',
-                    label: 'Dataset 2',
-                    backgroundColor: window.chartColors.red,
-                    data: [
-                        randomScalingFactor(),
-                        randomScalingFactor(),
-                        randomScalingFactor(),
-                        randomScalingFactor(),
-                        randomScalingFactor(),
-                        randomScalingFactor(),
-                        randomScalingFactor()
-                    ],
-                    borderColor: 'white',
-                    borderWidth: 2
-                }, {
-                    type: 'bar',
-                    label: 'Dataset 3',
+                    label: 'Volume( milion dallar)',
                     backgroundColor: window.chartColors.green,
-                    data: [
-                        randomScalingFactor(),
-                        randomScalingFactor(),
-                        randomScalingFactor(),
-                        randomScalingFactor(),
-                        randomScalingFactor(),
-                        randomScalingFactor(),
-                        randomScalingFactor()
-                    ]
+                    data: yVolume,
+                    borderColor: 'white',
+                    yAxisID: 'B',
+                    borderWidth: 2
                 }]
 
             };
             window.onload = function () {
                 $.get("http://localhost:8085/watching-coin", function (data, status) {
                     var watchingCoins = JSON.parse(data)
-                    for(var i=0; i< watchingCoins.length; i++) {
-                        $("#watching_coins").append(`<option value="`+watchingCoins[i].CoinID+`">`+watchingCoins[i].Name+`</option>"`);
+                    for (var i = 0; i < watchingCoins.length; i++) {
+                        $("#watching_coins").append(`<option value="` + watchingCoins[i].CoinID + `">` + watchingCoins[i].Name + `</option>"`);
                     }
+                    updateChart(watchingCoins[0].CoinID)
                 });
 
                 var ctx = document.getElementById('canvas').getContext('2d');
@@ -96,6 +88,21 @@
                         tooltips: {
                             mode: 'index',
                             intersect: true
+                        },
+                        scales: {
+                            yAxes: [{
+                                id: 'A',
+                                type: 'linear',
+                                position: 'left',
+                            }, {
+                                id: 'B',
+                                type: 'linear',
+                                position: 'right',
+                                // ticks: {
+                                //     max: 1,
+                                //     min: 0
+                                // }
+                            }]
                         }
                     }
                 });
@@ -111,14 +118,32 @@
             });
 
             function updateChart(coinID) {
-                $.get("http://localhost:8085/watching-coin", function (data, status) {
-                    var watchingCoins = JSON.parse(data)
-                    for(var i=0; i< watchingCoins.length; i++) {
-                        $("#watching_coins").append(`<option value="`+watchingCoins[i].CoinID+`">`+watchingCoins[i].Name+`</option>"`);
+                $.get("http://localhost:8085/coin-price/" + coinID, function (data, status) {
+                    var coinPrices = JSON.parse(data)
+                    console.log("updateChart")
+                    console.log(coinPrices)
+                    xLabels = []
+                    yPrice = []
+                    yVolume = []
+                    for (var i = 0; i < coinPrices.length; i++) {
+                        xLabels.push(coinPrices[i].CreatedAt.slice(5, 16).replace("T", " "))
+                        yPrice.push(coinPrices[i].Price)
+                        yVolume.push(parseInt(coinPrices[i].Volume) / 1000000)
                     }
+                    console.log(xLabels)
+                    // console.log(yPrice)
+                    // console.log(yVolume)
+                    window.myMixedChart.data.labels = xLabels
+                    chartData.datasets[0].data = yPrice
+                    chartData.datasets[1].data = yVolume
+                    window.myMixedChart.update();
                 });
             }
 
+            function coinChange() {
+                var x = document.getElementById("watching_coins").value;
+                updateChart(x)
+            }
         </script>
     </div>
 
