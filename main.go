@@ -78,6 +78,9 @@ func main() {
 	// http.ListenAndServe(":"+serverPort, nil)
 
 	go initalizeRoutes()
+	enterCoinPrice()
+	analysePrice()
+	fmt.Println("=================================")
 
 	for range time.Tick(time.Minute * 5) {
 		enterCoinPrice()
@@ -166,6 +169,7 @@ func enterCoinPrice() {
 					fmt.Println("No internet connectrion")
 					return
 				}
+				// fmt.Println("res:", res)
 				jsonparser.ArrayEach([]byte(res), func(value []byte, dataType jsonparser.ValueType, offset int, err error) {
 					id, _ := jsonparser.GetString(value, "id")
 					temp, _ := jsonparser.GetString(value, "price")
@@ -173,10 +177,10 @@ func enterCoinPrice() {
 					// fmt.Println(" price err:", err)
 					temp, _ = jsonparser.GetString(value, "market_cap")
 					marketCap, _ := strconv.ParseFloat(temp, 64)
-					oneDayData, _, _, _ := jsonparser.Get(value, "1d")
+					oneDayData, _, _, _ := jsonparser.Get(value, "1h")
 					temp, _ = jsonparser.GetString([]byte(oneDayData), "volume")
 					volume, _ := strconv.ParseFloat(temp, 64)
-					// fmt.Println(" price:", price, ", id:", id, ", market_cap:", marketCap, ", volume:", volume)
+					fmt.Println(" price:", price, ", id:", id, ", market_cap:", marketCap, ", volume:", volume)
 					db.Create(&Price{CoinID: id, Price: float32(price), TimeToSecond: time.Now().Unix(),
 						MarketCap: uint64(marketCap), Volume: uint64(volume), SignalAI: 0, SignalAlg: 0})
 				})
@@ -199,10 +203,10 @@ func enterCoinPrice() {
 			// fmt.Println(" price err:", err)
 			temp, _ = jsonparser.GetString(value, "market_cap")
 			marketCap, _ := strconv.ParseFloat(temp, 64)
-			oneDayData, _, _, _ := jsonparser.Get(value, "1d")
+			oneDayData, _, _, _ := jsonparser.Get(value, "1h")
 			temp, _ = jsonparser.GetString([]byte(oneDayData), "volume")
 			volume, _ := strconv.ParseFloat(temp, 64)
-			// fmt.Println(" price:", price, ", id:", id, ", market_cap:", marketCap, ", volume:", volume)
+			fmt.Println(" price:", price, ", id:", id, ", market_cap:", marketCap, ", volume:", volume)
 			db.Create(&Price{CoinID: id, Price: float32(price), TimeToSecond: time.Now().Unix(),
 				MarketCap: uint64(marketCap), Volume: uint64(volume), SignalAI: 0, SignalAlg: 0})
 		})
