@@ -18,6 +18,7 @@ const dbName = "Crypto.db"
 const dbDriver = "sqlite3"
 const APIkey = "3a6d281a390561754bd63457b8e5d904"
 const numberOfRoutines = 4
+const serverPort = "4567"
 
 // gorm.Model definition
 type Model struct {
@@ -71,7 +72,9 @@ func main() {
 	// }()
 
 	// done <- true
-
+	// fmt.Println("Server Port:", serverPort)
+	// http.HandleFunc("/", requestHandler)
+	// http.ListenAndServe(":"+serverPort, nil)
 	for range time.Tick(time.Minute * 15) {
 		enterCoinPrice()
 		analysePrice()
@@ -264,7 +267,7 @@ func analysePrice() {
 				// 	", CreatedAt:", lastPrice.CreatedAt, ", MarketCap:", lastPrice.MarketCap, ", Volume:", lastPrice.Volume)
 				// fmt.Println("secLastPrice CoinID:", secLastPrice.CoinID, " , price:", secLastPrice.Price,
 				// 	", CreatedAt:", secLastPrice.CreatedAt, ", MarketCap:", secLastPrice.MarketCap, ", Volume:", secLastPrice.Volume)
-				if lastPrice.Volume > uint64(float64(avgVolume)*1.10) && lastPrice.Price > avgPrice {
+				if lastPrice.Volume > uint64(float64(avgVolume)*1.10) && lastPrice.Price > (avgPrice*1.01) {
 					var score float32
 					score = float32(float32(lastPrice.Volume)/float32(avgVolume)) * float32(float32(lastPrice.Volume)/float32(avgVolume))
 					fmt.Println("Bulish Signal score:", score, ", CoinID:", lastPrice.CoinID, " , price:", lastPrice.Price,
